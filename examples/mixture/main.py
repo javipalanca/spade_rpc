@@ -17,7 +17,7 @@ def get_dataset(file, shuffle=True, test_split=0.1):
 
     dataset = [x.split(',') for x in file][:-1]
     x = np.double([x[0:3] for x in dataset])
-    y = np.asarray([x[4][:-2] for x in dataset])
+    y = np.asarray([x[4][:-1] for x in dataset])
 
     if shuffle:
         p = np.random.permutation(len(x))
