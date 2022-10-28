@@ -78,7 +78,7 @@ class RPCAgent(Agent):
 
         def register_method(self, handler, method_name=None, is_allowed=None):
             def method_wrapper(stanza):
-                params =  self.get_params(stanza.payload.payload.params)
+                params = self.get_params(stanza.payload.payload.params)
 
                 response = handler(*params)
                 
