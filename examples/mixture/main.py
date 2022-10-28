@@ -2,7 +2,7 @@ from spade.behaviour import OneShotBehaviour
 import spade_rpc
 import aioxmpp
 
-import classifiers
+import classifiers as clfs
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
 
@@ -33,21 +33,6 @@ def get_dataset(file, shuffle=True, test_split=0.1):
 
     return (x_train.tolist(), y_train.tolist()), (x_test.tolist(), y_test.tolist())
 
-@ignore_warnings(category=ConvergenceWarning)
-def init_all_classifiers(jid, passwd, training_data):
-    res = {}
-    for name, obj in inspect.getmembers(classifiers):
-        if inspect.isclass(obj) and issubclass(obj, spade_rpc.rpc.RPCAgent):
-            classifier_jid = '{}/{}'.format(jid, name)
-
-            classifier = obj(classifier_jid, passwd, training_data)
-
-            future = classifier.start()
-            future.result()
-
-            res[classifier_jid] = classifier
-    return res
-
 class Client(spade_rpc.rpc.RPCAgent):
     async def ask_to(self, JID, x):
         if type(JID) == list:
@@ -77,11 +62,11 @@ class AskBehaviour(OneShotBehaviour):
 def main(jid, passwd):
     (x_train, y_train), (x_test, y_test) = get_dataset('iris.data')
     
-    classifiers = init_all_classifiers(jid, passwd, [x_train, y_train])
+    classifiers = clfs.register_classifiers(jid, passwd, clfs.classifiers, [x_train, y_train])
 
     client = Client("{}/client".format(jid), passwd)
 
-    ab = AskBehaviour(list(classifiers.keys()), [x_test])
+    ab = AskBehaviour(list(classifiers), [x_test])
     ab.set_agent(client)
     client.add_behaviour(ab)
 
