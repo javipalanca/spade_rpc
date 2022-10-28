@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import aioxmpp
 import aioxmpp.rpc.xso as rpc_xso
-import aioxmpp.rpc.service as rpc_service
 import datetime as dt
-from numpy import double
 
 from spade.agent import Agent
 
