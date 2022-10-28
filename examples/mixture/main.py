@@ -9,7 +9,6 @@ from sklearn.exceptions import ConvergenceWarning
 import numpy as np
 import time
 import getpass
-import inspect
 
 
 def get_dataset(file, shuffle=True, test_split=0.1):

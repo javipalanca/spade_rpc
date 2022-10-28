@@ -43,7 +43,8 @@ class RPCAgent(Agent):
             if type(param) == list:
                 value = rpc_xso.array(rpc_xso.data([self.parse_param(x) for x in param]))
             elif type(param) == dict:
-                pass
+                members = [rpc_xso.member(rpc_xso.name(key), self.parse_param(value)) for key, value in param.items()]
+                value = rpc_xso.struct(members)
             else:
                 value = self.type_class[type(param)](param)
             
@@ -56,7 +57,7 @@ class RPCAgent(Agent):
             if type(xso_param) == rpc_xso.array:
                 return [self.get_param(x.value) for x in xso_param.data.data]
             elif type(xso_param) == rpc_xso.struct:
-                pass
+                return {member.name.name: self.get_param(member.value.value) for member in xso_param.members}
             else:
                 return self.class_type[type(xso_param)](xso_param.value)
 
