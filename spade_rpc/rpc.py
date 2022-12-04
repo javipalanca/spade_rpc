@@ -21,11 +21,11 @@ class RPCAgent(Agent):
     
     class RPCComponent:
         type_class = {
-            #int: i4,
+            int: rpc_xso.i4,
             int: rpc_xso.integer,
             str: rpc_xso.string,
             float: rpc_xso.double,
-            #base64: base64,
+            str: rpc_xso.base64,
             bool: rpc_xso.boolean,
             dt.datetime: rpc_xso.datetime,
             list: rpc_xso.array,
@@ -65,6 +65,9 @@ class RPCAgent(Agent):
             return [self.get_param(param.value.value) for param in xso_params.params]
 
         async def call_method(self, jid, methodName, params):
+            if not isinstance(params, list):
+                params = [params]
+
             query = rpc_xso.Query(
                 rpc_xso.MethodCall(
                     rpc_xso.MethodName(methodName),
@@ -72,7 +75,7 @@ class RPCAgent(Agent):
                 )
             )
 
-            response = await self.rpc_client.call_method(jid, query)
+            response = await self.rpc_client.call_method(aioxmpp.JID.fromstr(jid), query)
             return self.get_params(response.payload.params)
 
         def register_method(self, handler, method_name=None, is_allowed=None):
