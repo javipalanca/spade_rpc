@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
+import datetime as dt
+from abc import ABCMeta
+from typing import List, Callable
+
 import aioxmpp
 import aioxmpp.rpc.xso as rpc_xso
-import datetime as dt
-
-from spade.agent import Agent
-
 from loguru import logger
 
-class RPCAgent(Agent):
-    def __init__(self, jid: str, password: str, *args, **kwargs):
-        super().__init__(jid, password, *args, **kwargs)
+Param = Union[int, float, str, bool, dt.datetime, list, dict]
+
+class RPCMixin(metaclass=ABCMeta):
 
     async def _hook_plugin_after_connection(self, *args, **kwargs):
         try:
@@ -18,7 +18,7 @@ class RPCAgent(Agent):
             logger.debug("_hook_plugin_after_connection is undefined")
 
         self.rpc = self.RPCComponent(self.client)
-    
+
     class RPCComponent:
         type_class = {
             int: rpc_xso.i4,
@@ -39,7 +39,7 @@ class RPCAgent(Agent):
             self.rpc_client = self.client.summon(aioxmpp.RPCClient)
             self.rpc_server = self.client.summon(aioxmpp.RPCServer)
 
-        def parse_param(self, param):
+        def parse_param(self, param: Param) -> rpc_xso.Value:
             if type(param) == list:
                 value = rpc_xso.array(rpc_xso.data([self.parse_param(x) for x in param]))
             elif type(param) == dict:
@@ -47,10 +47,10 @@ class RPCAgent(Agent):
                 value = rpc_xso.struct(members)
             else:
                 value = self.type_class[type(param)](param)
-            
+
             return rpc_xso.Value(value)
 
-        def parse_params(self, params):
+        def parse_params(self, params: List[Param]) -> rpc_xso.Params:
             return rpc_xso.Params([rpc_xso.Param(self.parse_param(x)) for x in params])
 
         def get_param(self, xso_param):
@@ -64,13 +64,13 @@ class RPCAgent(Agent):
         def get_params(self, xso_params):
             return [self.get_param(param.value.value) for param in xso_params.params]
 
-        async def call_method(self, jid, methodName, params):
+        async def call(self, jid: str, method_name: str, params: List[Param]) -> List[Param]:
             if not isinstance(params, list):
                 params = [params]
 
             query = rpc_xso.Query(
                 rpc_xso.MethodCall(
-                    rpc_xso.MethodName(methodName),
+                    rpc_xso.MethodName(method_name),
                     self.parse_params(params)
                 )
             )
@@ -78,15 +78,17 @@ class RPCAgent(Agent):
             response = await self.rpc_client.call_method(aioxmpp.JID.fromstr(jid), query)
             return self.get_params(response.payload.params)
 
-        def register_method(self, handler, method_name=None, is_allowed=None):
+        def register_method(self, handler: Callable[..., List[Param]],
+                            method_name: str,
+                            is_allowed: Optional[Callable[[aioxmpp.JID], bool]] = None):
             def method_wrapper(stanza):
                 params = self.get_params(stanza.payload.payload.params)
 
                 response = handler(*params)
-                
+
                 if not isinstance(response, list):
                     response = [response]
-                
+
                 query = rpc_xso.Query(
                     rpc_xso.MethodResponse(
                         self.parse_params(response)
@@ -97,5 +99,5 @@ class RPCAgent(Agent):
 
             return self.rpc_server.register_method(method_wrapper, method_name, is_allowed)
 
-        def unregister_method(self, method_name):
+        def unregister_method(self, method_name: str):
             return self.rpc_server.unregister_method(self, method_name)
