@@ -1,10 +1,13 @@
+import asyncio
 import getpass
-import time
+from asyncio import run
 
 from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour
 
 from spade_rpc.rpc import RPCMixin
+
+import logging
 
 
 class ServerAgent(RPCMixin, Agent):
@@ -34,29 +37,29 @@ class ClientAgent(RPCMixin, Agent):
         self.add_behaviour(ab)
 
 
-def main(jid, passwd):
+async def main(jid, passwd):
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(levelname)-8s %(message)s')
+
     server_jid = f'{jid}/df'
 
     server_agent = ServerAgent(server_jid, passwd)
-    future = server_agent.start()
-    future.result()
+    await server_agent.start()
 
     test_client = ClientAgent(f'client_{jid}/test', passwd)
     test_client.server_jid = server_jid
 
-    future = test_client.start()
-    future.result()
+    await test_client.start()
 
-    while test_client.is_alive():
-        try:
-            time.sleep(1)
-        except KeyboardInterrupt:
-            test_client.stop()
-            break
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        await test_client.stop()
 
 
 if __name__ == "__main__":
     jid = input("JID> ")
     passwd = getpass.getpass()
 
-    main(jid, passwd)
+    run(main(jid, passwd))
