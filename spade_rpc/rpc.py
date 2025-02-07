@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from abc import ABCMeta, abstractmethod
 from asyncio import Event, Future
-from typing import List, Optional
+from typing import List
 
 from slixmpp import ClientXMPP
 from slixmpp.plugins.xep_0009 import XEP_0009
@@ -19,7 +19,7 @@ class RPCMixin(metaclass=ABCMeta):
         except AttributeError:
             logger.debug("_hook_plugin_after_connection is undefined")
 
-        self.rpc = self.RPCComponent(self._client)
+        self.rpc = self.RPCComponent(self.client)
 
     class RPCComponent:
         def __init__(self, client):
@@ -33,7 +33,6 @@ class RPCMixin(metaclass=ABCMeta):
             self._client.add_event_handler('jabber_rpc_error', self.handle_error)
 
             self.methods = {}
-            self.call_event = Event()
 
         async def call(self, jid: str, method_name: str, params: List):
             if not isinstance(params, list):
