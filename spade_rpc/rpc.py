@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 from abc import ABCMeta, abstractmethod
-from asyncio import Event, Future
 from typing import List
 
 from slixmpp import ClientXMPP
 from slixmpp.plugins.xep_0009 import XEP_0009
-from slixmpp.plugins.xep_0009.binding import py2xml, xml2py
+from slixmpp.plugins.xep_0009.binding import py2xml, xml2py, fault2xml
 from slixmpp.stanza.iq import Iq
 
 from loguru import logger
@@ -33,8 +32,9 @@ class RPCMixin(metaclass=ABCMeta):
             self._client.add_event_handler('jabber_rpc_error', self.handle_error)
 
             self.methods = {}
+            self.pending_calls = {}
 
-        async def call(self, jid: str, method_name: str, params: List):
+        async def call(self, jid: str, method_name: str, params: List, timeout: int = 10):
             if not isinstance(params, list):
                 params = [params]
 
@@ -43,14 +43,13 @@ class RPCMixin(metaclass=ABCMeta):
                 pmethod=method_name,
                 params=py2xml(*params)
             )
-            return await call_stanza.send()
 
-        async def call_async(self, jid: str, method_name: str, params: List):
-            await self.call(jid, method_name, params)
-
-        async def call_sync(self, jid: str, method_name: str, params: List):
-            res = await self.call(jid, method_name, params)
-            if type(res) is Future and res.done():
+            res = await call_stanza.send(timeout=timeout)
+            if type(res) is Iq:
+                fault = res['rpc_query']['method_response'].get_fault()
+                if fault:
+                    logger.error(f"{method_name} not found in {jid} methods registered list")
+                    return None
                 return xml2py(res['rpc_query']['method_response']['params'])
 
         async def handle_call(self, iq):
@@ -58,15 +57,20 @@ class RPCMixin(metaclass=ABCMeta):
                 name = iq['rpc_query']['method_call']['method_name']
                 return self.methods[name](iq)
             except KeyError:
-                params = iq['rpc_query']['method_call']['params']
+                fault = fault2xml({
+                    "code": 404,
+                    "string": "Method not found"
+                })
                 id_ = iq['id']
-                to_ = iq['to']
-                await self._rpc_client.make_iq_method_response_fault(id_, to_, params).send()
+                to_ = iq['from']
+                res = self._rpc_client.make_iq_method_response_fault(id_, to_, fault)
+                res.send()
 
         @abstractmethod
         async def handle_response(self, iq):
             """
-            Handles the response received from the client after a RPC request is performed.
+            Handles the response received from the client after an RPC request is performed.
+            Used to handle asynchronously the RPC response
             To override
             """
             pass
