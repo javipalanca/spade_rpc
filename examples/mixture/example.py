@@ -1,5 +1,5 @@
-import getpass
 import asyncio
+import getpass
 
 import numpy as np
 import sklearn.datasets
@@ -8,7 +8,6 @@ from spade.behaviour import OneShotBehaviour
 from spade_rpc import RPCMixin
 
 import classifiers as clfs
-
 
 
 def get_dataset(file):
@@ -126,12 +125,7 @@ async def main(jid, passwd):
 
     print("Predicting")
     await client.start()
-
-    try:
-        while client.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        await client.stop()
+    await ab.join()
 
 
 if __name__ == "__main__":
